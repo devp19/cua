@@ -158,5 +158,28 @@ class VMProviderFactory:
                     "Docker is required for DockerProvider. "
                     "Please install Docker and ensure it is running."
                 ) from e
+        
+        elif provider_type == VMProviderType.ANDROID:
+            try:
+                from .androiddocker import AndroidDockerProvider, HAS_ANDROID
+                if not HAS_ANDROID:
+                    raise ImportError(
+                        "AndroidDockerProvider requires BOTH Docker AND adb presnet in PATH."
+                        "Please install the 'docker' Python package (pip install docker), ensure Docker is running, and install Android Platform Tools so that 'adb' is available."
+                    )
+                return AndroidDockerProvider(
+                    port=port,
+                    host=host,
+                    image=image or "budtmo/docker-android:emulator_11.0",
+                    verbose=verbose,
+                    **kwargs
+                )
+            except ImportError as e:
+                logger.error(f"Failed to import AndroidDockerProvider or required dependencies: {e}")
+                raise ImportError(
+                    "Cannot use AndroidDockerProvider: missing Docker (Python package or daemon), or missing adb tool."
+                    "Install Docker, pip install docker, and Android Platform Tools (adb)."
+                ) from e
+
         else:
             raise ValueError(f"Unsupported provider type: {provider_type}")
