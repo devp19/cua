@@ -309,7 +309,7 @@ class Computer:
                                     self.provider_type,
                                     port=port,
                                     host=host,
-                                    image=image or "budtmo/docker-android:emulator_11.0"
+                                    image=image or "budtmo/docker-android:emulator_11.0",
                                     storage=storage,
                                     verbose=verbose,
                                     ephemeral=ephemeral,
