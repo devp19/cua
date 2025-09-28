@@ -12,8 +12,9 @@ class VMProviderType(StrEnum):
     CLOUD = "cloud"
     WINSANDBOX = "winsandbox"
     DOCKER = "docker"
-    UNKNOWN = "unknown"
     ANDROID = "android"
+    UNKNOWN = "unknown"
+ 
 
 
 class BaseVMProvider(AsyncContextManager):

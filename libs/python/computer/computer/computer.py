@@ -304,6 +304,16 @@ class Computer:
                                     verbose=verbose,
                                     ephemeral=ephemeral,
                                 )
+                            elif self.provider_type == VMProviderType.ANDROID:
+                                self.config.vm_provider = VMProviderFactory.create_provider(
+                                    self.provider_type,
+                                    port=port,
+                                    host=host,
+                                    image=image or "budtmo/docker-android:emulator_11.0"
+                                    storage=storage,
+                                    verbose=verbose,
+                                    ephemeral=ephemeral,
+                                )
                             elif self.provider_type == VMProviderType.CLOUD:
                                 self.config.vm_provider = VMProviderFactory.create_provider(
                                     self.provider_type,
