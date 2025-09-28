@@ -34,17 +34,18 @@ class AndroidDockerProvider(DockerProvider):
         adb_port: int = 5555,
         **kwargs
     ):
-        # Initialize as a Docker provider with Linux
+        # Initialize parent DockerProvider (it doesn't take all these params)
         super().__init__(
-            port=port,
             host=host,
             image=image,
             verbose=verbose,
             storage=storage,
             ephemeral=ephemeral,
-            vnc_port=vnc_port,
-            **kwargs
+            vnc_port=vnc_port
         )
+        # Set the port attribute that might be expected by other parts of the system
+        self.port = port
+        self.api_port = port  # Override the default 8000 from DockerProvider if needed
         self.adb_port = adb_port
         self._android_ready = False
 
@@ -82,7 +83,7 @@ class AndroidDockerProvider(DockerProvider):
             # Add port mappings
             cmd.extend(["-p", f"{self.vnc_port}:6080"])  # Web VNC
             cmd.extend(["-p", f"{self.adb_port}:5555"])  # ADB
-            cmd.extend(["-p", f"{self.port}:8000"])  # computer-server API port
+            cmd.extend(["-p", f"{self.api_port}:8000"])  # computer-server API port
             cmd.extend(["-p", "5554:5554"])  # Emulator console
             cmd.extend(["-p", "5900:5900"])  # VNC
             
