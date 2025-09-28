@@ -34,15 +34,17 @@ class AndroidDockerProvider(DockerProvider):
         adb_port: int = 5555,
         **kwargs
     ):
-        # Initialize parent DockerProvider (it doesn't take all these params)
+        # Initialize parent DockerProvider with Android image
         super().__init__(
             host=host,
-            image=image,
+            image=image,  # Pass the Android image to parent
             verbose=verbose,
             storage=storage,
             ephemeral=ephemeral,
             vnc_port=vnc_port
         )
+        # Override with Android-specific image if parent changed it
+        self.image = image
         # Set the port attribute that might be expected by other parts of the system
         self.port = port
         self.api_port = port  # Override the default 8000 from DockerProvider if needed
@@ -80,12 +82,41 @@ class AndroidDockerProvider(DockerProvider):
                 "--name", name
             ]
             
-            # Add port mappings
-            cmd.extend(["-p", f"{self.vnc_port}:6080"])  # Web VNC
-            cmd.extend(["-p", f"{self.adb_port}:5555"])  # ADB
-            cmd.extend(["-p", f"{self.api_port}:8000"])  # computer-server API port
-            cmd.extend(["-p", "5554:5554"])  # Emulator console
-            cmd.extend(["-p", "5900:5900"])  # VNC
+            # Add port mappings - check for conflicts and adjust if needed
+            import socket
+            
+            def is_port_free(port):
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    try:
+                        s.bind(('', port))
+                        return True
+                    except:
+                        return False
+            
+            # Map ports, skip if already in use
+            if is_port_free(self.vnc_port):
+                cmd.extend(["-p", f"{self.vnc_port}:6080"])  # Web VNC
+            else:
+                logger.warning(f"Port {self.vnc_port} in use, skipping VNC port mapping")
+                
+            if is_port_free(self.adb_port):
+                cmd.extend(["-p", f"{self.adb_port}:5555"])  # ADB
+            else:
+                logger.warning(f"Port {self.adb_port} in use, skipping ADB port mapping")
+                
+            cmd.extend(["-p", f"{self.api_port}:8000"])  # computer-server API port (required)
+            
+            # Skip emulator console port if in use (5554)
+            if is_port_free(5554):
+                cmd.extend(["-p", "5554:5554"])  # Emulator console
+            else:
+                logger.warning("Port 5554 in use, skipping emulator console port")
+                
+            # Skip VNC port if in use (5900)
+            if is_port_free(5900):
+                cmd.extend(["-p", "5900:5900"])  # VNC
+            else:
+                logger.warning("Port 5900 in use, skipping VNC port")
             
             # Add memory limit if specified
             if "memory" in run_opts:
