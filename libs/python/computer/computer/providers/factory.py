@@ -164,8 +164,8 @@ class VMProviderFactory:
                 from .androiddocker import AndroidDockerProvider, HAS_ANDROID
                 if not HAS_ANDROID:
                     raise ImportError(
-                        "AndroidDockerProvider requires BOTH Docker AND adb presnet in PATH."
-                        "Please install the 'docker' Python package (pip install docker), ensure Docker is running, and install Android Platform Tools so that 'adb' is available."
+                        "AndroidDockerProvider requires Docker to be installed and running. "
+                        "Please ensure Docker is installed and the Docker daemon is running."
                     )
                 return AndroidDockerProvider(
                     port=port,
@@ -175,10 +175,10 @@ class VMProviderFactory:
                     **kwargs
                 )
             except ImportError as e:
-                logger.error(f"Failed to import AndroidDockerProvider or required dependencies: {e}")
+                logger.error(f"Failed to import AndroidDockerProvider: {e}")
                 raise ImportError(
-                    "Cannot use AndroidDockerProvider: missing Docker (Python package or daemon), or missing adb tool."
-                    "Install Docker, pip install docker, and Android Platform Tools (adb)."
+                    "Cannot use AndroidDockerProvider: Docker is required. "
+                    "Please install Docker and ensure the Docker daemon is running."
                 ) from e
 
         else:
