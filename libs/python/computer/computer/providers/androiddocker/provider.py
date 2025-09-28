@@ -191,11 +191,23 @@ class AndroidDockerProvider(DockerProvider):
         self._android_ready = True
         logger.info("Android environment ready")
 
-    async def _wait_for_adb_ready(self, container_name: str, timeout: int = 60) -> bool:
+    async def _wait_for_adb_ready(self, container_name: str, timeout: int = 120) -> bool:
         """Wait for ADB to be ready in the container."""
-        logger.info("Waiting for Android emulator to be ready...")
+        logger.info("Waiting for Android emulator to boot (this may take 1-2 minutes)...")
         start_time = time.time()
         
+        # First, wait for emulator process to start
+        logger.info("Waiting for emulator process to start...")
+        while time.time() - start_time < 30:
+            cmd = ["docker", "exec", container_name, "sh", "-c", "ps aux | grep -v grep | grep emulator"]
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode == 0 and "emulator" in result.stdout:
+                logger.info("Emulator process started")
+                break
+            await asyncio.sleep(2)
+        
+        # Now wait for the device to appear in ADB
+        logger.info("Waiting for device to appear in ADB...")
         while time.time() - start_time < timeout:
             try:
                 # Check if ADB devices shows the emulator
@@ -204,13 +216,37 @@ class AndroidDockerProvider(DockerProvider):
                 
                 if result.returncode == 0:
                     output = result.stdout
-                    # Look for emulator or device in the output
-                    if "emulator" in output or ("device" in output and "offline" not in output):
-                        logger.info("Android emulator is ready")
-                        return True
+                    lines = output.strip().split('\n')
+                    
+                    # Check for actual device entries (not just the header)
+                    if len(lines) > 1:
+                        for line in lines[1:]:
+                            if line.strip() and '\t' in line:
+                                device, status = line.strip().split('\t')
+                                if status == "device":  # Not "offline" or "unauthorized"
+                                    logger.info(f"Android device ready: {device}")
+                                    
+                                    # Wait a bit more for the system to fully boot
+                                    logger.info("Waiting for system to stabilize...")
+                                    await asyncio.sleep(5)
+                                    
+                                    # Check if boot is completed
+                                    boot_check = ["docker", "exec", container_name, "adb", "shell", "getprop", "sys.boot_completed"]
+                                    boot_result = subprocess.run(boot_check, capture_output=True, text=True)
+                                    if boot_result.returncode == 0 and "1" in boot_result.stdout:
+                                        logger.info("Android system fully booted")
+                                    
+                                    return True
+                                elif status == "offline":
+                                    logger.debug(f"Device {device} is offline, waiting...")
                 
             except Exception as e:
                 logger.debug(f"Waiting for ADB: {e}")
+            
+            # Show progress
+            elapsed = int(time.time() - start_time)
+            if elapsed % 10 == 0:
+                logger.info(f"Still waiting for emulator... ({elapsed}s elapsed)")
             
             await asyncio.sleep(2)
         
