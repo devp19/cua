@@ -1,52 +1,37 @@
 #!/usr/bin/env python3
 """
-Android Bridge Server
-Runs on the host and bridges Computer SDK API calls to Android ADB in container.
+Android Bridge Server - WebSocket to ADB Bridge
+This server translates Computer SDK commands to Android ADB commands.
+Runs on port 8000 to provide the standard Computer SDK interface.
 """
-
 import asyncio
-import base64
-import subprocess
 import json
 import logging
-from typing import Optional
-from fastapi import FastAPI, WebSocket
-from fastapi.responses import JSONResponse
-import uvicorn
+import subprocess
+import base64
+import os
+from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-class AndroidBridge:
-    """Bridge between Computer SDK and Android ADB in Docker container."""
+class AndroidBridgeServer:
+    """WebSocket server that bridges Computer SDK to Android ADB."""
     
-    def __init__(self, container_name: str):
+    def __init__(self, container_name: str = "android-test", host: str = "0.0.0.0", port: int = 8000):
         self.container_name = container_name
-        self.app = FastAPI()
-        self.setup_routes()
+        self.host = host
+        self.port = port
+        self.clients = set()
     
-    def setup_routes(self):
-        """Setup FastAPI routes."""
-        
-        @self.app.get("/health")
-        async def health():
-            return {"status": "ready", "provider": "android", "container": self.container_name}
-        
-        @self.app.websocket("/ws")
-        async def websocket_endpoint(websocket: WebSocket):
-            await websocket.accept()
-            try:
-                while True:
-                    data = await websocket.receive_json()
-                    action = data.get("action")
-                    
-                    if action == "screenshot":
-                        screenshot = await self.take_screenshot()
-                        if screenshot:
-                            await websocket.send_json({
-                                "success": True,
-                                "screenshot": screenshot
-                            })
-                        else:
+    async def execute_adb(self, command: list) -> tuple[bool, str, bytes]:
+        """Execute ADB command in container."""
+        cmd = ["docker", "exec", self.container_name, "adb"] + command
+        try:
+            result = subprocess.run(cmd, capture_output=True, timeout=10)
+            return result.returncode == 0, result.stdout.decode('utf-8', errors='ignore'), result.stdout
+        except Exception as e:
+            logger.error(f"ADB command failed: {e}")
+            return False, str(e), b''
                             await websocket.send_json({"success": False})
                     
                     elif action == "click":

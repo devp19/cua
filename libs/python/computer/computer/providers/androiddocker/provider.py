@@ -32,6 +32,7 @@ class AndroidDockerProvider(DockerProvider):
         ephemeral: bool = True,
         vnc_port: int = 6080,
         adb_port: int = 5555,
+        device_profile: str = "Samsung Galaxy S10",
         **kwargs
     ):
         # Initialize parent DockerProvider with Android image
@@ -49,6 +50,7 @@ class AndroidDockerProvider(DockerProvider):
         self.port = port
         self.api_port = port  # Override the default 8000 from DockerProvider if needed
         self.adb_port = adb_port
+        self.device_profile = device_profile
         self._android_ready = False
 
     @property
@@ -129,7 +131,7 @@ class AndroidDockerProvider(DockerProvider):
                 cmd.extend(["--cpus", cpu_count])
             
             # Environment variables for Android
-            cmd.extend(["-e", "EMULATOR_DEVICE=Samsung Galaxy S10"])
+            cmd.extend(["-e", f"EMULATOR_DEVICE={self.device_profile}"])
             cmd.extend(["-e", "WEB_VNC=true"])
             
             # Try to add KVM device if available
@@ -254,24 +256,61 @@ class AndroidDockerProvider(DockerProvider):
         return False
 
     async def _install_computer_server(self, container_name: str):
-        """Start a minimal bridge server for Android container."""
-        logger.info("Starting Android bridge server...")
+        """Install and start the Android-specific computer-server equivalent.
         
-        # For now, let's skip the complex server setup
-        # The Computer SDK will retry connection automatically
-        # We'll rely on the container's built-in capabilities
+        Since the Android container doesn't have the standard computer-server
+        (which requires desktop APIs), we run our Android bridge that provides
+        the same WebSocket API but uses ADB commands instead.
         
-        # Just verify ADB is working
+        This makes the Android container 'agent-ready' just like other providers.
+        """
+        logger.info("Setting up Android computer-server (ADB bridge)...")
+        
+        # First verify ADB is working
         test_adb = ["docker", "exec", container_name, "adb", "devices"]
         result = subprocess.run(test_adb, capture_output=True, text=True)
         if result.returncode == 0:
             logger.info("ADB is working in container")
         else:
             logger.warning("ADB not yet ready")
+            return False
         
-        # For testing purposes, let's just return success
-        # The actual implementation would start a proper bridge server
-        logger.info("Bridge server setup complete (minimal mode)")
+        # Copy and start our Android bridge (computer-server equivalent)
+        try:
+            bridge_script = os.path.join(os.path.dirname(__file__), "android_bridge.py")
+            
+            if os.path.exists(bridge_script):
+                # Copy our Android-specific computer-server to container
+                logger.info("Installing Android computer-server bridge...")
+                copy_cmd = ["docker", "cp", bridge_script, f"{container_name}:/tmp/computer_server.py"]
+                subprocess.run(copy_cmd, check=True)
+                
+                # Install dependencies
+                deps_cmd = ["docker", "exec", container_name, "pip", "install", "-q", "websockets"]
+                subprocess.run(deps_cmd, capture_output=True)
+                
+                # Start the Android computer-server
+                start_cmd = [
+                    "docker", "exec", "-d", container_name,
+                    "python3", "/tmp/computer_server.py", container_name
+                ]
+                result = subprocess.run(start_cmd, capture_output=True)
+                
+                if result.returncode == 0:
+                    logger.info("✅ Android computer-server started on port 8000")
+                    logger.info("✅ Container is now agent-ready!")
+                    logger.info("✅ Natural language commands via Agent are supported")
+                    await asyncio.sleep(2)  # Give server time to start
+                    return True
+                else:
+                    logger.warning("Could not start Android computer-server")
+            else:
+                logger.warning("Android bridge script not found, using direct ADB mode")
+        
+        except Exception as e:
+            logger.warning(f"Android computer-server setup failed: {e}")
+        
+        logger.info("Running in direct ADB mode (Agent support limited)")
         return True
 
     # Android-specific helper methods
