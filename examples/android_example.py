@@ -34,6 +34,7 @@ async def main():
         os_type="linux",  # Container runs Linux with Android inside
         provider_type=VMProviderType.ANDROID,
         name="android-example",
+        image="budtmo/docker-android:emulator_11.0",  # Specify Android image explicitly
         verbosity=logging.INFO,
         ephemeral=True,  # Clean up container when done
         display="1280x720",
