@@ -15,7 +15,6 @@ sys.path.insert(0, str(Path(__file__).parent / "libs" / "python" / "computer"))
 
 from computer.computer import Computer
 from computer.providers.base import VMProviderType
-from computer.logger import LogLevel
 
 # Set up detailed logging
 logging.basicConfig(
@@ -97,7 +96,7 @@ async def test_basic_functionality():
             os_type="linux",  # Android container runs Linux
             provider_type=VMProviderType.ANDROID,
             name="android-test-container",
-            verbosity=LogLevel.DEBUG,
+            verbosity=logging.DEBUG,  # Use standard logging level
             ephemeral=True,
             port=8000
         )
@@ -211,7 +210,7 @@ async def test_advanced_features():
         os_type="linux",
         provider_type=VMProviderType.ANDROID,
         name="android-advanced-test",
-        verbosity=LogLevel.INFO,
+        verbosity=logging.INFO,  # Use standard logging level
         ephemeral=True
     )
     
@@ -258,7 +257,7 @@ async def test_websocket_connection():
         os_type="linux",
         provider_type=VMProviderType.ANDROID,
         name="android-ws-test",
-        verbosity=LogLevel.DEBUG,
+        verbosity=logging.DEBUG,  # Use standard logging level
         ephemeral=True
     )
     

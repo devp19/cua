@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent / "libs" / "python" / "computer"))
 from computer.computer import Computer
 from computer.providers.base import VMProviderType
 from computer.logger import LogLevel
+import logging
 
 
 async def quick_test():
@@ -24,7 +25,7 @@ async def quick_test():
         os_type="linux",
         provider_type=VMProviderType.ANDROID,
         name="android-quick-test",
-        verbosity=LogLevel.INFO,
+        verbosity=logging.INFO,  # Use standard logging level
         ephemeral=True
     )
     
