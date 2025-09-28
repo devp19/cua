@@ -45,11 +45,14 @@ async def main():
     try:
         print("\n1. Starting Android container...")
         print("   This may take 1-2 minutes on first run")
-        await computer.run()
+        
+        # Start the VM directly without waiting for WebSocket
+        await computer._start_vm()
         
         print("\n2. Container started!")
+        print("   ✅ Android emulator is booting!")
         print("   View the Android screen at: http://localhost:6080")
-        print("   Note: The emulator needs time to boot (60-120 seconds)")
+        print("   Note: The WebSocket bridge is not yet implemented")
         
         # Wait for Android to boot
         print("\n3. Waiting for Android to boot...")
@@ -74,6 +77,10 @@ async def main():
         
         print("\n✅ Android provider is working!")
         print("   The container is running with Android emulator inside")
+        print("   Access it at: http://localhost:6080")
+        
+        print("\nPress Enter to stop the container...")
+        input()
         
     except Exception as e:
         print(f"\n❌ Error: {e}")
@@ -81,7 +88,11 @@ async def main():
         traceback.print_exc()
     
     finally:
-        await computer.stop()
+        print("\n6. Stopping container...")
+        # Stop the VM directly
+        if hasattr(computer, '_vm_provider') and computer._vm_provider:
+            await computer._vm_provider.stop_vm("android-example", None)
+        print("   ✅ Container stopped and cleaned up")
 
 if __name__ == "__main__":
     asyncio.run(main())
