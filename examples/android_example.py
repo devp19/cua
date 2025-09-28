@@ -46,12 +46,21 @@ async def main():
         print("\n1. Starting Android container...")
         print("   This may take 1-2 minutes on first run")
         
-        # Start the VM directly without waiting for WebSocket
-        await computer._start_vm()
+        # Initialize the VM provider and start container directly
+        computer._initialize_vm_provider()
+        
+        # Start the Android container
+        vm_info = await computer._vm_provider.run_vm(
+            image="budtmo/docker-android:emulator_11.0",
+            name="android-example",
+            run_opts={"memory": "4GB", "cpu": "4"},
+            storage=None
+        )
         
         print("\n2. Container started!")
         print("   ✅ Android emulator is booting!")
         print("   View the Android screen at: http://localhost:6080")
+        print(f"   Container ID: {vm_info.get('container_id', 'unknown')[:12]}")
         print("   Note: The WebSocket bridge is not yet implemented")
         
         # Wait for Android to boot
