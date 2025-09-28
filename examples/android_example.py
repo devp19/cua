@@ -8,7 +8,7 @@ async def main():
         display="1280x720",
         memory="4GB",
         cpu="4",
-        os_type="android",                
+        os_type="linux",                
         provider_type=VMProviderType.ANDROID, 
         name="android-test",
         verbosity=LogLevel.VERBOSE,
