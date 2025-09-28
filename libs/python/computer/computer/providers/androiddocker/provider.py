@@ -275,19 +275,133 @@ class AndroidDockerProvider(DockerProvider):
         return True
 
     # Android-specific helper methods
-    async def execute_adb_command(self, command: str) -> str:
+    async def execute_adb_command(self, command: List[str]) -> str:
         """Execute an ADB command in the container."""
         if not self.container_name:
             raise RuntimeError("Container not initialized")
         
-        cmd = ["docker", "exec", self.container_name, "adb", "shell"] + command.split()
+        cmd = ["docker", "exec", self.container_name, "adb"] + command
         result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.warning(f"ADB command failed: {result.stderr}")
         return result.stdout
-
-    async def open_url(self, url: str):
-        """Open a URL in the Android browser."""
-        return await self.execute_adb_command(f"am start -a android.intent.action.VIEW -d {url}")
-
-    async def open_app(self, package_name: str):
-        """Open an Android app by package name."""
-        return await self.execute_adb_command(f"monkey -p {package_name} -c android.intent.category.LAUNCHER 1")
+    
+    # System Navigation Methods
+    async def home(self) -> bool:
+        """Navigate to home screen."""
+        logger.info("Navigating to home screen")
+        output = await self.execute_adb_command(["shell", "input", "keyevent", "3"])
+        return "Error" not in output
+    
+    async def back(self) -> bool:
+        """Navigate back."""
+        logger.info("Navigating back")
+        output = await self.execute_adb_command(["shell", "input", "keyevent", "4"])
+        return "Error" not in output
+    
+    async def recents(self) -> bool:
+        """Open recent apps."""
+        logger.info("Opening recent apps")
+        output = await self.execute_adb_command(["shell", "input", "keyevent", "187"])
+        return "Error" not in output
+    
+    async def open_notifications(self) -> bool:
+        """Open notification panel."""
+        logger.info("Opening notifications")
+        # Try the command first
+        output = await self.execute_adb_command(["shell", "cmd", "statusbar", "expand-notifications"])
+        if "Error" in output:
+            # Fallback: swipe down from top
+            logger.info("Using swipe fallback for notifications")
+            return await self.swipe(500, 0, 500, 1000, 300)
+        return True
+    
+    async def open_quick_settings(self) -> bool:
+        """Open quick settings panel."""
+        logger.info("Opening quick settings")
+        output = await self.execute_adb_command(["shell", "cmd", "statusbar", "expand-settings"])
+        return "Error" not in output
+    
+    # App Control Methods
+    async def open_app(self, package_name: str, activity: Optional[str] = None) -> bool:
+        """Open an Android app."""
+        logger.info(f"Opening app: {package_name}")
+        if activity:
+            # Open specific activity
+            cmd = ["shell", "am", "start", "-n", f"{package_name}/{activity}"]
+        else:
+            # Use monkey to launch main activity
+            cmd = ["shell", "monkey", "-p", package_name, "-c", "android.intent.category.LAUNCHER", "1"]
+        
+        output = await self.execute_adb_command(cmd)
+        return "Error" not in output and "Exception" not in output
+    
+    async def open_url(self, url: str) -> bool:
+        """Open a URL in the default browser."""
+        logger.info(f"Opening URL: {url}")
+        cmd = ["shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url]
+        output = await self.execute_adb_command(cmd)
+        return "Error" not in output
+    
+    async def is_app_installed(self, package_name: str) -> bool:
+        """Check if an app is installed."""
+        cmd = ["shell", "pm", "list", "packages"]
+        output = await self.execute_adb_command(cmd)
+        return package_name in output
+    
+    async def kill_app(self, package_name: str) -> bool:
+        """Force stop an app."""
+        logger.info(f"Killing app: {package_name}")
+        cmd = ["shell", "am", "force-stop", package_name]
+        output = await self.execute_adb_command(cmd)
+        return "Error" not in output
+    
+    async def clear_app_data(self, package_name: str) -> bool:
+        """Clear app data."""
+        logger.info(f"Clearing data for app: {package_name}")
+        cmd = ["shell", "pm", "clear", package_name]
+        output = await self.execute_adb_command(cmd)
+        return "Success" in output
+    
+    # Input Methods
+    async def tap(self, x: int, y: int) -> bool:
+        """Perform a tap at coordinates."""
+        logger.debug(f"Tapping at ({x}, {y})")
+        cmd = ["shell", "input", "tap", str(x), str(y)]
+        output = await self.execute_adb_command(cmd)
+        return "Error" not in output
+    
+    async def swipe(self, x1: int, y1: int, x2: int, y2: int, duration_ms: int = 300) -> bool:
+        """Perform a swipe gesture."""
+        logger.debug(f"Swiping from ({x1}, {y1}) to ({x2}, {y2}) in {duration_ms}ms")
+        cmd = ["shell", "input", "swipe", str(x1), str(y1), str(x2), str(y2), str(duration_ms)]
+        output = await self.execute_adb_command(cmd)
+        return "Error" not in output
+    
+    async def type_text(self, text: str) -> bool:
+        """Type text using Android keyboard."""
+        logger.debug(f"Typing text: {text[:20]}...")
+        # Escape special characters for shell
+        escaped = text.replace(" ", "%s").replace("'", "\\'").replace('"', '\\"').replace("&", "\\&")
+        cmd = ["shell", "input", "text", escaped]
+        output = await self.execute_adb_command(cmd)
+        return "Error" not in output
+    
+    async def key_event(self, keycode: int) -> bool:
+        """Send a key event (e.g., 66 for Enter)."""
+        logger.debug(f"Sending keycode: {keycode}")
+        cmd = ["shell", "input", "keyevent", str(keycode)]
+        output = await self.execute_adb_command(cmd)
+        return "Error" not in output
+    
+    async def screenshot(self) -> Optional[bytes]:
+        """Take a screenshot and return as bytes."""
+        logger.info("Taking screenshot")
+        cmd = ["shell", "screencap", "-p"]
+        result = subprocess.run(
+            ["docker", "exec", self.container_name, "adb"] + cmd,
+            capture_output=True
+        )
+        if result.returncode == 0 and result.stdout:
+            return result.stdout
+        return None
