@@ -42,7 +42,8 @@ async def main():
         provider_type=VMProviderType.ANDROID,
         name="android-agent-test",
         image="budtmo/docker-android:emulator_11.0",
-        ephemeral=True
+        ephemeral=True,
+        ports={8000: 8000}
     ) as computer:
         
         print("✅ Android container started")
