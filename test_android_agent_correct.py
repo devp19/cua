@@ -46,23 +46,23 @@ async def main():
     )
 
    # 2. Manually initialize the computer
-await computer.run()
+    await computer.run()
 
-# 3. Now update the WebSocket URL before the interface tries to connect
-if hasattr(computer, '_interface'):
-    # Update the WebSocket URL to use port 7777
-    computer._interface._ws_url = "ws://localhost:7777/ws"
-    print(f"✅ Updated WebSocket URL to: {computer._interface._ws_url}")
-    
-    # Also update the base URL if it exists
-    if hasattr(computer._interface, '_base_url'):
-        computer._interface._base_url = computer._interface._base_url.replace('8000', '7777')
-        print(f"✅ Updated base URL to: {computer._interface._base_url}")
+    # 3. Now update the WebSocket URL before the interface tries to connect
+    if hasattr(computer, '_interface'):
+        # Update the WebSocket URL to use port 7777
+        computer._interface._ws_url = "ws://localhost:7777/ws"
+        print(f"✅ Updated WebSocket URL to: {computer._interface._ws_url}")
+        
+        # Also update the base URL if it exists
+        if hasattr(computer._interface, '_base_url'):
+            computer._interface._base_url = computer._interface._base_url.replace('8000', '7777')
+            print(f"✅ Updated base URL to: {computer._interface._base_url}")
 
-# 4. Now enter the async context
-async with computer:
-    print("✅ Android container started")
-    print("   View at: http://localhost:6080")
+    # 4. Now enter the async context
+    async with computer:
+        print("✅ Android container started")
+        print("   View at: http://localhost:6080")
         
         # Wait for Android to boot
         print("\n2. Waiting for Android emulator to boot (60-90 seconds)...")
