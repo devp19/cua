@@ -56,7 +56,7 @@ async def main():
         # This follows the exact pattern from example.py
         agent = ComputerAgent(
             # Choose your model:
-            model="anthropic/claude-3-5-sonnet-20241022",  # Latest Claude
+            model="anthropic/claude-sonnet-4-20250514",  # Latest Claude
             # model="openai/gpt-4",  # Or GPT-4
             
             # Pass the computer as a tool
