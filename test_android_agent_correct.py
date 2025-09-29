@@ -37,30 +37,13 @@ async def main():
     print("\n1. Starting Android container...")
     
     # Create Computer with Android provider
-    computer = Computer(
+    async with Computer(
         os_type="linux",
         provider_type=VMProviderType.ANDROID,
         name="android-agent-test",
         image="budtmo/docker-android:emulator_11.0",
         ephemeral=True
-    )
-
-   # 2. Manually initialize the computer
-    await computer.run()
-
-    # 3. Now update the WebSocket URL before the interface tries to connect
-    if hasattr(computer, '_interface'):
-        # Update the WebSocket URL to use port 7777
-        computer._interface._ws_url = "ws://localhost:7777/ws"
-        print(f"✅ Updated WebSocket URL to: {computer._interface._ws_url}")
-        
-        # Also update the base URL if it exists
-        if hasattr(computer._interface, '_base_url'):
-            computer._interface._base_url = computer._interface._base_url.replace('8000', '7777')
-            print(f"✅ Updated base URL to: {computer._interface._base_url}")
-
-    # 4. Now enter the async context
-    async with computer:
+    ) as computer:
         print("✅ Android container started")
         print("   View at: http://localhost:6080")
         
