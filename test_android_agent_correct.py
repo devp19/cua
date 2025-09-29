@@ -47,7 +47,9 @@ async def main():
 
     # Update WebSocket port to 7777
     if hasattr(computer, '_interface') and hasattr(computer._interface, '_ws_url'):
-        computer._interface._ws_url = computer._interface._ws_url.replace('8000', '7777')
+        computer._interface._ws_url = "ws://localhost:7777/ws"
+        print(f"✅ Updated WebSocket URL to: {computer._interface._ws_url}")
+
 
     async with computer:
     
