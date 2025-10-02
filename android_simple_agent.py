@@ -85,7 +85,8 @@ async def main():
         print("  - 'Open the Settings app'")
         print("  - 'Go to the home screen'")
         print("  - 'Tap in the center of the screen'")
-        print("  - 'Type Hello World'")
+        print("  - 'Go to home screen'")
+        print("  - 'Open website devp.ca'")
         print("  - 'exit' to quit")
         print("\n" + "=" * 70)
         
