@@ -285,30 +285,60 @@ class AndroidDockerProvider(DockerProvider):
                 copy_cmd = ["docker", "cp", bridge_script, f"{container_name}:/tmp/computer_server.py"]
                 subprocess.run(copy_cmd, check=True)
                 
-                # Install dependencies
-                deps_cmd = ["docker", "exec", container_name, "pip", "install", "-q", "websockets"]
-                subprocess.run(deps_cmd, capture_output=True)
+                # Install dependencies (check if pip3 or pip)
+                logger.info("Installing websockets dependency...")
+                deps_cmd = ["docker", "exec", container_name, "pip3", "install", "-q", "websockets"]
+                deps_result = subprocess.run(deps_cmd, capture_output=True, text=True)
+                if deps_result.returncode != 0:
+                    # Try with pip instead of pip3
+                    deps_cmd = ["docker", "exec", container_name, "pip", "install", "-q", "websockets"]
+                    deps_result = subprocess.run(deps_cmd, capture_output=True, text=True)
+                    if deps_result.returncode != 0:
+                        logger.warning(f"Failed to install websockets: {deps_result.stderr}")
                 
-                # Start the Android computer-server
+                # Kill any existing server process
+                kill_cmd = ["docker", "exec", container_name, "pkill", "-f", "computer_server.py"]
+                subprocess.run(kill_cmd, capture_output=True)
+                await asyncio.sleep(1)
+                
+                # Start the Android computer-server in background
                 start_cmd = [
                     "docker", "exec", "-d", container_name,
                     "python3", "/tmp/computer_server.py", container_name
                 ]
-                result = subprocess.run(start_cmd, capture_output=True)
+                result = subprocess.run(start_cmd, capture_output=True, text=True)
                 
                 if result.returncode == 0:
                     logger.info("✅ Android computer-server started on port 8000")
                     logger.info("✅ Container is now agent-ready!")
                     logger.info("✅ Natural language commands via Agent are supported")
-                    await asyncio.sleep(2)  # Give server time to start
+                    
+                    # Wait and verify the server is actually running
+                    await asyncio.sleep(3)
+                    
+                    # Check if process is running
+                    check_cmd = ["docker", "exec", container_name, "ps", "aux"]
+                    check_result = subprocess.run(check_cmd, capture_output=True, text=True)
+                    if "computer_server.py" in check_result.stdout:
+                        logger.info("✅ Verified: computer-server process is running")
+                    else:
+                        logger.warning("⚠️ Warning: computer-server process not found in ps output")
+                        # Try to get logs
+                        log_cmd = ["docker", "exec", container_name, "cat", "/tmp/computer_server.log"]
+                        log_result = subprocess.run(log_cmd, capture_output=True, text=True)
+                        if log_result.stdout:
+                            logger.warning(f"Server logs: {log_result.stdout}")
+                    
                     return True
                 else:
-                    logger.warning("Could not start Android computer-server")
+                    logger.warning(f"Could not start Android computer-server: {result.stderr}")
             else:
                 logger.warning("Android bridge script not found, using direct ADB mode")
         
         except Exception as e:
             logger.warning(f"Android computer-server setup failed: {e}")
+            import traceback
+            logger.warning(traceback.format_exc())
         
         logger.info("Running in direct ADB mode (Agent support limited)")
         return True

@@ -10,10 +10,26 @@ import json
 import logging
 import subprocess
 import base64
+import sys
+import traceback
 from typing import Dict, Any, Optional
-import websockets
 
-logging.basicConfig(level=logging.INFO)
+try:
+    import websockets
+except ImportError:
+    print("ERROR: websockets module not installed")
+    print("Install with: pip3 install websockets")
+    sys.exit(1)
+
+# Set up logging to both console and file
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('/tmp/computer_server.log')
+    ]
+)
 logger = logging.getLogger(__name__)
 
 
@@ -139,12 +155,26 @@ class AndroidBridge:
 
 async def main():
     """Run the bridge server."""
-    import sys
-    container_name = sys.argv[1] if len(sys.argv) > 1 else "android-test"
-    
-    bridge = AndroidBridge(container_name)
-    await bridge.start_server()
+    try:
+        container_name = sys.argv[1] if len(sys.argv) > 1 else "android-test"
+        logger.info(f"Starting Android Bridge Server for container: {container_name}")
+        logger.info(f"Python version: {sys.version}")
+        logger.info(f"WebSocket server will listen on 0.0.0.0:8000")
+        
+        bridge = AndroidBridge(container_name)
+        await bridge.start_server()
+    except Exception as e:
+        logger.error(f"Fatal error in main: {e}")
+        logger.error(traceback.format_exc())
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Server stopped by user")
+    except Exception as e:
+        logger.error(f"Unhandled exception: {e}")
+        logger.error(traceback.format_exc())
+        sys.exit(1)
