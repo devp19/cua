@@ -193,9 +193,9 @@ Common package names:
 
 Respond with a JSON array of commands to execute. Example:
 [
-  {"function": "home"},
-  {"function": "open_app", "args": {"package": "com.android.settings"}},
-  {"function": "tap", "args": {"x": 640, "y": 360}}
+  {{"function": "home"}},
+  {{"function": "open_app", "args": {{"package": "com.android.settings"}}}},
+  {{"function": "tap", "args": {{"x": 640, "y": 360}}}}
 ]
 
 Only return the JSON array, nothing else."""
