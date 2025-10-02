@@ -285,16 +285,36 @@ class AndroidDockerProvider(DockerProvider):
                 copy_cmd = ["docker", "cp", bridge_script, f"{container_name}:/tmp/computer_server.py"]
                 subprocess.run(copy_cmd, check=True)
                 
-                # Install dependencies (check if pip3 or pip)
+                # Install dependencies (handle PEP 668 externally-managed-environment)
                 logger.info("Installing websockets dependency...")
-                deps_cmd = ["docker", "exec", container_name, "pip3", "install", "-q", "websockets"]
+                
+                # Try pip3 with --break-system-packages flag (for PEP 668)
+                deps_cmd = ["docker", "exec", container_name, "pip3", "install", "-q", "--break-system-packages", "websockets"]
                 deps_result = subprocess.run(deps_cmd, capture_output=True, text=True)
+                
                 if deps_result.returncode != 0:
-                    # Try with pip instead of pip3
-                    deps_cmd = ["docker", "exec", container_name, "pip", "install", "-q", "websockets"]
+                    # Try without the flag (older Python versions)
+                    deps_cmd = ["docker", "exec", container_name, "pip3", "install", "-q", "websockets"]
                     deps_result = subprocess.run(deps_cmd, capture_output=True, text=True)
+                    
                     if deps_result.returncode != 0:
-                        logger.warning(f"Failed to install websockets: {deps_result.stderr}")
+                        # Try with pip instead of pip3
+                        deps_cmd = ["docker", "exec", container_name, "pip", "install", "-q", "--break-system-packages", "websockets"]
+                        deps_result = subprocess.run(deps_cmd, capture_output=True, text=True)
+                        
+                        if deps_result.returncode != 0:
+                            # Last resort: try apt-get
+                            logger.warning("pip install failed, trying apt-get...")
+                            apt_cmd = ["docker", "exec", container_name, "apt-get", "update"]
+                            subprocess.run(apt_cmd, capture_output=True)
+                            apt_cmd = ["docker", "exec", container_name, "apt-get", "install", "-y", "python3-websockets"]
+                            deps_result = subprocess.run(apt_cmd, capture_output=True, text=True)
+                            if deps_result.returncode != 0:
+                                logger.warning(f"Failed to install websockets: {deps_result.stderr}")
+                            else:
+                                logger.info("✅ websockets installed via apt-get")
+                else:
+                    logger.info("✅ websockets installed successfully")
                 
                 # Kill any existing server process
                 kill_cmd = ["docker", "exec", container_name, "pkill", "-f", "computer_server.py"]
