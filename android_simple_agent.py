@@ -74,6 +74,34 @@ async def main():
         print("   Waiting for Android emulator to boot (90 seconds)...")
         await asyncio.sleep(90)
         
+        # Detect actual screen resolution
+        print("\n🔍 Detecting screen resolution...")
+        try:
+            # Get screen size from ADB
+            import subprocess
+            result = subprocess.run(
+                ["docker", "exec", "android-simple-agent", "adb", "shell", "wm", "size"],
+                capture_output=True,
+                text=True
+            )
+            if result.returncode == 0:
+                # Parse output like "Physical size: 1080x1920"
+                output = result.stdout.strip()
+                if "x" in output:
+                    size_part = output.split(":")[-1].strip()
+                    width, height = map(int, size_part.split("x"))
+                    screen_width, screen_height = width, height
+                    print(f"   ✅ Screen resolution: {screen_width}x{screen_height}")
+                else:
+                    screen_width, screen_height = 1080, 1920
+                    print(f"   ⚠️  Could not detect, using default: {screen_width}x{screen_height}")
+            else:
+                screen_width, screen_height = 1080, 1920
+                print(f"   ⚠️  Could not detect, using default: {screen_width}x{screen_height}")
+        except Exception as e:
+            screen_width, screen_height = 1080, 1920
+            print(f"   ⚠️  Error detecting resolution, using default: {screen_width}x{screen_height}")
+        
         # Initialize Anthropic client
         client = anthropic.Anthropic(api_key=api_key)
         
@@ -141,7 +169,7 @@ async def main():
                     })
                 
                 # Call Claude to get ADB commands
-                system_prompt = """You are an Android automation assistant. Convert user requests into ADB commands.
+                system_prompt = f"""You are an Android automation assistant. Convert user requests into ADB commands.
 
 You can SEE the Android screen in the image provided. Analyze what's visible and determine the correct actions.
 
@@ -151,12 +179,12 @@ Available ADB functions (call these directly):
 - recents() - Show recent apps
 - open_app(package) - Open app by package name (e.g., "com.android.settings")
 - open_url(url) - Open URL in browser
-- tap(x, y) - Tap at coordinates (screen is 1280x720)
-- swipe(x1, y1, x2, y2, duration) - Swipe gesture
+- tap(x, y) - Tap at coordinates (screen is {screen_width}x{screen_height})
+- swipe(x1, y1, x2, y2, duration) - Swipe gesture (screen is {screen_width}x{screen_height})
 - type_text(text) - Type text
 - key_event(keycode) - Send key event (66=Enter, 67=Backspace)
 
-IMPORTANT: Look at the image to find UI elements. If user says "tap the 3 dots top right", look at the image, find the 3 dots icon, estimate its coordinates, and tap there.
+IMPORTANT: Look at the image to find UI elements. The screen resolution is {screen_width}x{screen_height}. When you see UI elements in the image, provide coordinates that match this resolution. If user says "tap the 3 dots top right", look at the image, find the 3 dots icon, estimate its coordinates relative to {screen_width}x{screen_height}, and tap there.
 
 Common package names:
 - Settings: com.android.settings
