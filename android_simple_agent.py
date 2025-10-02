@@ -107,14 +107,43 @@ async def main():
                 
                 print(f"\n🤖 Processing: '{user_input}'")
                 
-                # Add user message
-                conversation.append({
-                    "role": "user",
-                    "content": user_input
-                })
+                # Take screenshot for vision
+                print("   📸 Taking screenshot...")
+                screenshot_bytes = await provider.screenshot()
+                
+                if screenshot_bytes:
+                    import base64
+                    screenshot_b64 = base64.b64encode(screenshot_bytes).decode('utf-8')
+                    
+                    # Add user message with image
+                    conversation.append({
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "image/png",
+                                    "data": screenshot_b64
+                                }
+                            },
+                            {
+                                "type": "text",
+                                "text": user_input
+                            }
+                        ]
+                    })
+                else:
+                    # Fallback without image
+                    conversation.append({
+                        "role": "user",
+                        "content": user_input
+                    })
                 
                 # Call Claude to get ADB commands
                 system_prompt = """You are an Android automation assistant. Convert user requests into ADB commands.
+
+You can SEE the Android screen in the image provided. Analyze what's visible and determine the correct actions.
 
 Available ADB functions (call these directly):
 - home() - Go to home screen
@@ -126,6 +155,8 @@ Available ADB functions (call these directly):
 - swipe(x1, y1, x2, y2, duration) - Swipe gesture
 - type_text(text) - Type text
 - key_event(keycode) - Send key event (66=Enter, 67=Backspace)
+
+IMPORTANT: Look at the image to find UI elements. If user says "tap the 3 dots top right", look at the image, find the 3 dots icon, estimate its coordinates, and tap there.
 
 Common package names:
 - Settings: com.android.settings
