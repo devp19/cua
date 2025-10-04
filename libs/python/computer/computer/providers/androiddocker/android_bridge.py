@@ -39,11 +39,15 @@ class AndroidBridge:
         
     async def execute_adb(self, command: list) -> tuple:
         """Execute ADB command directly (we're already inside the container)."""
-        cmd = ["adb"] + command
+        # Use -s emulator-5554 to explicitly target the device
+        cmd = ["adb", "-s", "emulator-5554"] + command
         try:
             result = subprocess.run(cmd, capture_output=True, timeout=10)
             success = result.returncode == 0
             output = result.stdout.decode('utf-8', errors='ignore')
+            error = result.stderr.decode('utf-8', errors='ignore')
+            if error:
+                logger.debug(f"ADB stderr: {error}")
             return success, output, result.stdout
         except Exception as e:
             logger.error(f"ADB error: {e}")
