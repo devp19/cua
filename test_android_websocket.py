@@ -142,15 +142,23 @@ async def main():
         print("\n WEBSOCKET CONNECTION FAILED")
         print(f"   Error: {e}")
         print("\n   This means the bridge is not responding correctly.")
-        print("   Check the bridge logs with:")
-        print("   docker exec android-ws-test cat /tmp/computer_server.log")
+        print("\n   CONTAINER LEFT RUNNING FOR DEBUGGING")
+        print("   Run diagnostics with: python manual_bridge_test.py")
+        print("\n   Or manually check:")
+        print("   - Logs: docker exec android-ws-test cat /tmp/computer_server.log")
+        print("   - Process: docker exec android-ws-test ps aux | grep computer_server")
+        print("   - Port: docker exec android-ws-test netstat -tuln | grep 8000")
+        print("\n   To clean up manually: docker stop android-ws-test && docker rm android-ws-test")
         
     except Exception as e:
         print(f"\n Error: {e}")
         import traceback
         traceback.print_exc()
+        print("\n   CONTAINER LEFT RUNNING FOR DEBUGGING")
+        print("   Clean up with: docker stop android-ws-test && docker rm android-ws-test")
         
-    finally:
+    else:
+        # Only cleanup if successful
         print("\n Cleaning up...")
         try:
             await computer.stop()
