@@ -104,17 +104,7 @@ async def main():
         client = anthropic.Anthropic(api_key=api_key)
         
         print("\nAI Agent ready!")
-        print("\n" + "=" * 70)
-        print("INTERACTIVE MODE - Natural Language Commands")
-        print("=" * 70)
-        print("\nExample commands:")
-        print("  - 'Open the Settings app'")
-        print("  - 'Go to the home screen'")
-        print("  - 'Tap in the center of the screen'")
-        print("  - 'Go to home screen'")
-        print("  - 'Open website devp.ca'")
-        print("  - 'exit' to quit")
-        print("\n" + "=" * 70)
+        print ("\nEnter Commands")
         
         # Conversation history
         conversation = []
@@ -128,10 +118,10 @@ async def main():
                     continue
                     
                 if user_input.lower() in ['exit', 'quit', 'q']:
-                    print("\n👋 Exiting...")
+                    print("\nExiting...")
                     break
                 
-                print(f"\n🤖 Processing: '{user_input}'")
+                print(f"\nProcessing: '{user_input}'")
                 
                 # Take screenshot for vision
                 # print("Taking screenshot...")
@@ -175,7 +165,7 @@ Available ADB functions (call these directly):
 - back() - Press back button
 - recents() - Show recent apps
 - open_app(package) - Open app by package name (e.g., "com.android.settings")
-- open_url(url) - Open URL in browser
+- open_url(url) - Open URL in browser (automatically adds https:// if missing)
 - tap(x, y) - Tap at coordinates (screen is {screen_width}x{screen_height})
 - swipe(x1, y1, x2, y2, duration) - Swipe gesture (screen is {screen_width}x{screen_height})
 - type_text(text) - Type text
@@ -188,14 +178,22 @@ Common package names:
 - Chrome: com.android.chrome
 - Calculator: com.android.calculator2
 
-Respond with a JSON array of commands to execute. Example:
+For URLs: You can use domain names directly (e.g., "nvidia.com" or "www.nvidia.com"). The system will add https:// automatically.
+
+You can execute MULTIPLE commands in sequence! For example, "open chrome and go to nvidia website":
+[
+  {{"function": "open_app", "args": {{"package": "com.android.chrome"}}}},
+  {{"function": "open_url", "args": {{"url": "nvidia.com"}}}}
+]
+
+Another example with navigation:
 [
   {{"function": "home"}},
   {{"function": "open_app", "args": {{"package": "com.android.settings"}}}},
   {{"function": "tap", "args": {{"x": 640, "y": 360}}}}
 ]
 
-Only return the JSON array, nothing else."""
+Respond with a JSON array of commands to execute. Only return the JSON array, nothing else."""
 
                 response = client.messages.create(
                     model="claude-sonnet-4-20250514",
@@ -238,30 +236,43 @@ Only return the JSON array, nothing else."""
                         print(f"   Executing: {func_name}({args})")
                         
                         # Call the provider method
+                        success = False
                         if func_name == "home":
-                            await provider.home()
+                            success = await provider.home()
                         elif func_name == "back":
-                            await provider.back()
+                            success = await provider.back()
                         elif func_name == "recents":
-                            await provider.recents()
+                            success = await provider.recents()
                         elif func_name == "open_app":
-                            await provider.open_app(args["package"])
+                            success = await provider.open_app(args["package"])
+                            if success:
+                                print(f"       App opened, waiting for launch...")
+                                await asyncio.sleep(2)  # Wait for app to launch
                         elif func_name == "open_url":
-                            await provider.open_url(args["url"])
+                            success = await provider.open_url(args["url"])
+                            if success:
+                                print(f"       URL opened, waiting for browser...")
+                                await asyncio.sleep(2)  # Wait for browser to load
                         elif func_name == "tap":
-                            await provider.tap(args["x"], args["y"])
+                            success = await provider.tap(args["x"], args["y"])
                         elif func_name == "swipe":
-                            await provider.swipe(
+                            success = await provider.swipe(
                                 args["x1"], args["y1"],
                                 args["x2"], args["y2"],
                                 args.get("duration", 300)
                             )
                         elif func_name == "type_text":
-                            await provider.type_text(args["text"])
+                            success = await provider.type_text(args["text"])
                         elif func_name == "key_event":
-                            await provider.key_event(args["keycode"])
+                            success = await provider.key_event(args["keycode"])
                         else:
-                            print(f"   ⚠️  Unknown function: {func_name}")
+                            print(f"       Unknown function: {func_name}")
+                            continue
+                        
+                        if success:
+                            print(f"       Success")
+                        else:
+                            print(f"      Failed")
                         
                         await asyncio.sleep(0.5)  # Small delay between commands
                     
@@ -272,19 +283,16 @@ Only return the JSON array, nothing else."""
                     print(f"   Response was: {response_text}")
                 
             except KeyboardInterrupt:
-                print("\n\n👋 Interrupted by user. Exiting...")
+                print("\n\nInterrupted by user. Exiting...")
                 break
             except Exception as e:
                 print(f"\nError: {e}")
                 import traceback
                 traceback.print_exc()
         
-        print("\n" + "=" * 70)
-        print("SESSION COMPLETE")
-        print("=" * 70)
+      
         
     finally:
-        print("\n📦 Cleaning up...")
         try:
             await computer.stop()
         except:

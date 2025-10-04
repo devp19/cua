@@ -374,10 +374,22 @@ class AndroidDockerProvider(DockerProvider):
     
     async def open_url(self, url: str) -> bool:
         """Open a URL in the default browser."""
+        # Ensure URL has proper protocol
+        if not url.startswith(("http://", "https://")):
+            url = "https://" + url
+        
         logger.info(f"Opening URL: {url}")
         cmd = ["shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url]
         output = await self.execute_adb_command(cmd)
-        return "Error" not in output
+        
+        # Check for success indicators
+        success = "Error" not in output and "Exception" not in output
+        if success:
+            logger.info(f"Successfully opened URL: {url}")
+        else:
+            logger.warning(f"Failed to open URL: {url}, output: {output}")
+        
+        return success
     
     async def is_app_installed(self, package_name: str) -> bool:
         """Check if an app is installed."""
