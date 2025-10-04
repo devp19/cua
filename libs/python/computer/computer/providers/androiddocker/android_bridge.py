@@ -155,7 +155,7 @@ class AndroidBridge:
             error_response = {"success": False, "error": str(e)}
             await websocket.send(json.dumps(error_response))
     
-    async def handle_connection(self, websocket, path):
+    async def handle_connection(self, websocket):
         """Handle WebSocket connection from Computer SDK."""
         logger.info(f"New connection from {websocket.remote_address}")
         
