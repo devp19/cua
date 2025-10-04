@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Android Bridge Server - Enables Natural Language Control
 This server provides the WebSocket interface that the Computer SDK expects,
@@ -21,7 +20,6 @@ except ImportError:
     print("Install with: pip3 install websockets")
     sys.exit(1)
 
-# Set up logging to both console and file
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',

@@ -1,6 +1,8 @@
 """
-Simplified Android Docker Provider for Cua Computer SDK
-Treats Android container as a Linux system with Android emulator running inside.
+Author: Dev Patel
+Overview: Android Docker Provider for Cua Computer SDK
+Description: Treats Android container as a Linux system with Android emulator running inside.
+Notes: Android image is based on budtmo/docker-android:emulator_11.0
 """
 
 from ..base import BaseVMProvider, VMProviderType
@@ -35,33 +37,28 @@ class AndroidDockerProvider(DockerProvider):
         device_profile: str = "Samsung Galaxy S10",
         **kwargs
     ):
-        # Initialize parent DockerProvider with Android image
         super().__init__(
             host=host,
-            image=image,  # Pass the Android image to parent
+            image=image, 
             verbose=verbose,
             storage=storage,
             ephemeral=ephemeral,
             vnc_port=vnc_port
         )
-        # Override with Android-specific image if parent changed it
         self.image = image
-        # Set the port attribute that might be expected by other parts of the system
         self.port = port
-        self.api_port = port  # Override the default 8000 from DockerProvider if needed
+        self.api_port = port
         self.adb_port = adb_port
         self.device_profile = device_profile
         self._android_ready = False
 
     @property
     def provider_type(self) -> VMProviderType:
-        # Still identify as Android provider for clarity
         return VMProviderType.ANDROID
 
     async def run_vm(self, image: str, name: str, run_opts: Dict[str, Any], storage: Optional[str] = None) -> Dict[str, Any]:
         """Run an Android emulator container with computer-server."""
         try:
-            # Check if container already exists
             existing_vm = await self.get_vm(name, storage)
             if existing_vm["status"] == "running":
                 logger.info(f"Container {name} is already running")
@@ -69,7 +66,6 @@ class AndroidDockerProvider(DockerProvider):
                 await self._setup_android_environment(name)
                 return existing_vm
             elif existing_vm["status"] in ["stopped", "paused"]:
-                # Start existing container
                 logger.info(f"Starting existing container {name}")
                 start_cmd = ["docker", "start", name]
                 result = subprocess.run(start_cmd, capture_output=True, text=True, check=True)
@@ -78,13 +74,11 @@ class AndroidDockerProvider(DockerProvider):
                 await self._setup_android_environment(name)
                 return await self.get_vm(name, storage)
             
-            # Build docker run command for new container
             cmd = [
                 "docker", "run", "-d", "--privileged",
                 "--name", name
             ]
             
-            # Add port mappings - check for conflicts and adjust if needed
             import socket
             
             def is_port_free(port):
@@ -95,56 +89,47 @@ class AndroidDockerProvider(DockerProvider):
                     except:
                         return False
             
-            # Map ports, skip if already in use
             if is_port_free(self.vnc_port):
                 cmd.extend(["-p", f"{self.vnc_port}:6080"])  # Web VNC
             else:
                 logger.warning(f"Port {self.vnc_port} in use, skipping VNC port mapping")
                 
             if is_port_free(self.adb_port):
-                cmd.extend(["-p", f"{self.adb_port}:5555"])  # ADB
+                cmd.extend(["-p", f"{self.adb_port}:5555"]) 
             else:
                 logger.warning(f"Port {self.adb_port} in use, skipping ADB port mapping")
                 
-            cmd.extend(["-p", f"{self.api_port}:8000"])  # computer-server API port (required)
+            cmd.extend(["-p", f"{self.api_port}:8000"]) 
             
-            # Skip emulator console port if in use (5554)
             if is_port_free(5554):
-                cmd.extend(["-p", "5554:5554"])  # Emulator console
+                cmd.extend(["-p", "5554:5554"]) 
             else:
                 logger.warning("Port 5554 in use, skipping emulator console port")
                 
-            # Skip VNC port if in use (5900)
             if is_port_free(5900):
-                cmd.extend(["-p", "5900:5900"])  # VNC
+                cmd.extend(["-p", "5900:5900"])
             else:
                 logger.warning("Port 5900 in use, skipping VNC port")
             
-            # Add memory limit if specified
             if "memory" in run_opts:
                 memory_limit = self._parse_memory(run_opts["memory"])
                 cmd.extend(["--memory", memory_limit])
             
-            # Add CPU limit if specified
             if "cpu" in run_opts:
                 cpu_count = str(run_opts["cpu"])
                 cmd.extend(["--cpus", cpu_count])
             
-            # Environment variables for Android
             cmd.extend(["-e", f"EMULATOR_DEVICE={self.device_profile}"])
             cmd.extend(["-e", "WEB_VNC=true"])
             
-            # Try to add KVM device if available
             if os.path.exists("/dev/kvm"):
                 cmd.extend(["--device", "/dev/kvm"])
             
-            # Use provided image or default
             docker_image = image if image != "default" else self.image
             cmd.append(docker_image)
             
             logger.info(f"Starting Android container with command: {' '.join(cmd)}")
             
-            # Run the container
             result = subprocess.run(cmd, capture_output=True, text=True)
             
             if result.returncode != 0:
@@ -153,18 +138,14 @@ class AndroidDockerProvider(DockerProvider):
             container_id = result.stdout.strip()
             logger.info(f"Container {name} started with ID: {container_id[:12]}")
             
-            # Store container info
             self._container_id = container_id
             self.container_name = name
             self._running_containers[name] = container_id
             
-            # Wait for container to be ready
             await self._wait_for_container_ready(name)
             
-            # Setup Android environment and computer-server
             await self._setup_android_environment(name)
             
-            # Return VM info
             vm_info = await self.get_vm(name, storage)
             vm_info["container_id"] = container_id[:12]
             
@@ -181,24 +162,19 @@ class AndroidDockerProvider(DockerProvider):
             }
 
     async def _setup_android_environment(self, container_name: str):
-        """Setup the Android environment with computer-server."""
         logger.info("Setting up Android environment...")
         
-        # Wait for ADB to be ready
         await self._wait_for_adb_ready(container_name)
         
-        # Install and start computer-server
         await self._install_computer_server(container_name)
         
         self._android_ready = True
         logger.info("Android environment ready")
 
     async def _wait_for_adb_ready(self, container_name: str, timeout: int = 120) -> bool:
-        """Wait for ADB to be ready in the container."""
-        logger.info("Waiting for Android emulator to boot (this may take 1-2 minutes)...")
+        logger.info("Waiting for Android emulator to boot...")
         start_time = time.time()
         
-        # First, wait for emulator process to start
         logger.info("Waiting for emulator process to start...")
         while time.time() - start_time < 30:
             cmd = ["docker", "exec", container_name, "sh", "-c", "ps aux | grep -v grep | grep emulator"]
@@ -208,11 +184,9 @@ class AndroidDockerProvider(DockerProvider):
                 break
             await asyncio.sleep(2)
         
-        # Now wait for the device to appear in ADB
         logger.info("Waiting for device to appear in ADB...")
         while time.time() - start_time < timeout:
             try:
-                # Check if ADB devices shows the emulator
                 cmd = ["docker", "exec", container_name, "adb", "devices"]
                 result = subprocess.run(cmd, capture_output=True, text=True)
                 
@@ -220,19 +194,16 @@ class AndroidDockerProvider(DockerProvider):
                     output = result.stdout
                     lines = output.strip().split('\n')
                     
-                    # Check for actual device entries (not just the header)
                     if len(lines) > 1:
                         for line in lines[1:]:
                             if line.strip() and '\t' in line:
                                 device, status = line.strip().split('\t')
-                                if status == "device":  # Not "offline" or "unauthorized"
+                                if status == "device": 
                                     logger.info(f"Android device ready: {device}")
                                     
-                                    # Wait a bit more for the system to fully boot
                                     logger.info("Waiting for system to stabilize...")
                                     await asyncio.sleep(5)
                                     
-                                    # Check if boot is completed
                                     boot_check = ["docker", "exec", container_name, "adb", "shell", "getprop", "sys.boot_completed"]
                                     boot_result = subprocess.run(boot_check, capture_output=True, text=True)
                                     if boot_result.returncode == 0 and "1" in boot_result.stdout:
@@ -256,17 +227,9 @@ class AndroidDockerProvider(DockerProvider):
         return False
 
     async def _install_computer_server(self, container_name: str):
-        """Install and start the Android-specific computer-server equivalent.
-        
-        Since the Android container doesn't have the standard computer-server
-        (which requires desktop APIs), we run our Android bridge that provides
-        the same WebSocket API but uses ADB commands instead.
-        
-        This makes the Android container 'agent-ready' just like other providers.
-        """
+       
         logger.info("Setting up Android computer-server (ADB bridge)...")
         
-        # First verify ADB is working
         test_adb = ["docker", "exec", container_name, "adb", "devices"]
         result = subprocess.run(test_adb, capture_output=True, text=True)
         if result.returncode == 0:
@@ -275,35 +238,28 @@ class AndroidDockerProvider(DockerProvider):
             logger.warning("ADB not yet ready")
             return False
         
-        # Copy and start our Android bridge (computer-server equivalent)
         try:
             bridge_script = os.path.join(os.path.dirname(__file__), "android_bridge.py")
             
             if os.path.exists(bridge_script):
-                # Copy our Android-specific computer-server to container
                 logger.info("Installing Android computer-server bridge...")
                 copy_cmd = ["docker", "cp", bridge_script, f"{container_name}:/tmp/computer_server.py"]
                 subprocess.run(copy_cmd, check=True)
                 
-                # Install dependencies (handle PEP 668 externally-managed-environment)
                 logger.info("Installing websockets dependency...")
                 
-                # Try pip3 with --break-system-packages flag (for PEP 668)
                 deps_cmd = ["docker", "exec", container_name, "pip3", "install", "-q", "--break-system-packages", "websockets"]
                 deps_result = subprocess.run(deps_cmd, capture_output=True, text=True)
                 
                 if deps_result.returncode != 0:
-                    # Try without the flag (older Python versions)
                     deps_cmd = ["docker", "exec", container_name, "pip3", "install", "-q", "websockets"]
                     deps_result = subprocess.run(deps_cmd, capture_output=True, text=True)
                     
                     if deps_result.returncode != 0:
-                        # Try with pip instead of pip3
                         deps_cmd = ["docker", "exec", container_name, "pip", "install", "-q", "--break-system-packages", "websockets"]
                         deps_result = subprocess.run(deps_cmd, capture_output=True, text=True)
                         
                         if deps_result.returncode != 0:
-                            # Last resort: try apt-get
                             logger.warning("pip install failed, trying apt-get...")
                             apt_cmd = ["docker", "exec", container_name, "apt-get", "update"]
                             subprocess.run(apt_cmd, capture_output=True)
@@ -312,16 +268,14 @@ class AndroidDockerProvider(DockerProvider):
                             if deps_result.returncode != 0:
                                 logger.warning(f"Failed to install websockets: {deps_result.stderr}")
                             else:
-                                logger.info("✅ websockets installed via apt-get")
+                                logger.info("websockets installed via apt-get")
                 else:
-                    logger.info("✅ websockets installed successfully")
+                    logger.info("websockets installed successfully")
                 
-                # Kill any existing server process
                 kill_cmd = ["docker", "exec", container_name, "pkill", "-f", "computer_server.py"]
                 subprocess.run(kill_cmd, capture_output=True)
                 await asyncio.sleep(1)
                 
-                # Start the Android computer-server in background
                 start_cmd = [
                     "docker", "exec", "-d", container_name,
                     "python3", "/tmp/computer_server.py", container_name
@@ -329,21 +283,18 @@ class AndroidDockerProvider(DockerProvider):
                 result = subprocess.run(start_cmd, capture_output=True, text=True)
                 
                 if result.returncode == 0:
-                    logger.info("✅ Android computer-server started on port 8000")
-                    logger.info("✅ Container is now agent-ready!")
-                    logger.info("✅ Natural language commands via Agent are supported")
+                    logger.info("Android computer-server started on port 8000")
+                    logger.info("Container is now agent-ready!")
+                    logger.info("Natural language commands via Agent are supported")
                     
-                    # Wait and verify the server is actually running
                     await asyncio.sleep(3)
                     
-                    # Check if process is running
                     check_cmd = ["docker", "exec", container_name, "ps", "aux"]
                     check_result = subprocess.run(check_cmd, capture_output=True, text=True)
                     if "computer_server.py" in check_result.stdout:
-                        logger.info("✅ Verified: computer-server process is running")
+                        logger.info("Verified: computer-server process is running")
                     else:
-                        logger.warning("⚠️ Warning: computer-server process not found in ps output")
-                        # Try to get logs
+                        logger.warning("Warning: computer-server process not found in ps output")
                         log_cmd = ["docker", "exec", container_name, "cat", "/tmp/computer_server.log"]
                         log_result = subprocess.run(log_cmd, capture_output=True, text=True)
                         if log_result.stdout:
@@ -363,9 +314,7 @@ class AndroidDockerProvider(DockerProvider):
         logger.info("Running in direct ADB mode (Agent support limited)")
         return True
 
-    # Android-specific helper methods
     async def execute_adb_command(self, command: List[str]) -> str:
-        """Execute an ADB command in the container."""
         if not self.container_name:
             raise RuntimeError("Container not initialized")
         
@@ -377,13 +326,13 @@ class AndroidDockerProvider(DockerProvider):
     
     # System Navigation Methods
     async def home(self) -> bool:
-        """Navigate to home screen."""
+        """Navigate to home screen (home screen)"""
         logger.info("Navigating to home screen")
         output = await self.execute_adb_command(["shell", "input", "keyevent", "3"])
         return "Error" not in output
     
     async def back(self) -> bool:
-        """Navigate back."""
+        """Navigate back (back button)"""
         logger.info("Navigating back")
         output = await self.execute_adb_command(["shell", "input", "keyevent", "4"])
         return "Error" not in output
@@ -397,10 +346,8 @@ class AndroidDockerProvider(DockerProvider):
     async def open_notifications(self) -> bool:
         """Open notification panel."""
         logger.info("Opening notifications")
-        # Try the command first
         output = await self.execute_adb_command(["shell", "cmd", "statusbar", "expand-notifications"])
         if "Error" in output:
-            # Fallback: swipe down from top
             logger.info("Using swipe fallback for notifications")
             return await self.swipe(500, 0, 500, 1000, 300)
         return True
