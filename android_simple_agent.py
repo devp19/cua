@@ -25,23 +25,23 @@ async def main():
     # Check for API key
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
-        print("❌ ERROR: ANTHROPIC_API_KEY environment variable not set!")
+        print("ERROR: ANTHROPIC_API_KEY environment variable not set!")
         print("\nPlease set your API key:")
         print("  export ANTHROPIC_API_KEY='your-api-key-here'")
         return
     
     if not HAS_ANTHROPIC:
-        print("❌ ERROR: anthropic package not installed")
+        print("ERROR: anthropic package not installed")
         print("Install with: pip install anthropic")
         return
     
     print("=" * 70)
     print("SIMPLE ANDROID AGENT - NATURAL LANGUAGE CONTROL")
     print("=" * 70)
-    print(f"\n✅ Anthropic API key found")
+    print(f"\nAnthropic API key found")
     
     # Create Android computer instance
-    print("\n📦 Step 1: Starting Android container...")
+    print("\nStep 1: Starting Android container...")
     print("   This will take 60-120 seconds for the emulator to boot")
     print("   View progress at: http://localhost:6080")
     
@@ -67,15 +67,13 @@ async def main():
         # Get direct provider access
         provider = computer.config.vm_provider
         if not provider:
-            print("❌ Could not access provider")
+            print("Could not access provider")
             return
         
-        print("\n✅ Container started!")
+        print("\nContainer started!")
         print("   Waiting for Android emulator to boot (90 seconds)...")
         await asyncio.sleep(90)
         
-        # Detect actual screen resolution
-        print("\n🔍 Detecting screen resolution...")
         try:
             # Get screen size from ADB
             import subprocess
@@ -91,21 +89,21 @@ async def main():
                     size_part = output.split(":")[-1].strip()
                     width, height = map(int, size_part.split("x"))
                     screen_width, screen_height = width, height
-                    print(f"   ✅ Screen resolution: {screen_width}x{screen_height}")
+                    print(f"Screen resolution: {screen_width}x{screen_height}")
                 else:
                     screen_width, screen_height = 1080, 1920
-                    print(f"   ⚠️  Could not detect, using default: {screen_width}x{screen_height}")
+                    print(f"Could not detect, using default: {screen_width}x{screen_height}")
             else:
                 screen_width, screen_height = 1080, 1920
-                print(f"   ⚠️  Could not detect, using default: {screen_width}x{screen_height}")
+                print(f"Could not detect, using default: {screen_width}x{screen_height}")
         except Exception as e:
             screen_width, screen_height = 1080, 1920
-            print(f"   ⚠️  Error detecting resolution, using default: {screen_width}x{screen_height}")
+            print(f"Error detecting resolution, using default: {screen_width}x{screen_height}")
         
         # Initialize Anthropic client
         client = anthropic.Anthropic(api_key=api_key)
         
-        print("\n✅ AI Agent ready!")
+        print("\nAI Agent ready!")
         print("\n" + "=" * 70)
         print("INTERACTIVE MODE - Natural Language Commands")
         print("=" * 70)
@@ -136,8 +134,8 @@ async def main():
                 print(f"\n🤖 Processing: '{user_input}'")
                 
                 # Take screenshot for vision
-                print("   📸 Taking screenshot...")
-                screenshot_bytes = await provider.screenshot()
+                # print("Taking screenshot...")
+                # screenshot_bytes = await provider.screenshot()
                 
                 if screenshot_bytes:
                     import base64
@@ -162,7 +160,6 @@ async def main():
                         ]
                     })
                 else:
-                    # Fallback without image
                     conversation.append({
                         "role": "user",
                         "content": user_input
@@ -216,7 +213,7 @@ Only return the JSON array, nothing else."""
                     "content": response_text
                 })
                 
-                print(f"\n💬 Agent: {response_text}\n")
+                print(f"\nAgent: {response_text}\n")
                 
                 # Parse and execute commands
                 try:
@@ -268,17 +265,17 @@ Only return the JSON array, nothing else."""
                         
                         await asyncio.sleep(0.5)  # Small delay between commands
                     
-                    print("\n✅ Commands executed!")
+                    print("\nCommands executed!")
                     
                 except json.JSONDecodeError as e:
-                    print(f"❌ Failed to parse commands: {e}")
+                    print(f"Failed to parse commands: {e}")
                     print(f"   Response was: {response_text}")
                 
             except KeyboardInterrupt:
                 print("\n\n👋 Interrupted by user. Exiting...")
                 break
             except Exception as e:
-                print(f"\n❌ Error: {e}")
+                print(f"\nError: {e}")
                 import traceback
                 traceback.print_exc()
         
@@ -294,7 +291,7 @@ Only return the JSON array, nothing else."""
             import subprocess
             subprocess.run(["docker", "stop", "android-simple-agent"], capture_output=True)
             subprocess.run(["docker", "rm", "android-simple-agent"], capture_output=True)
-        print("✅ Container stopped and cleaned up")
+        print("Container stopped and cleaned up")
 
 
 if __name__ == "__main__":
