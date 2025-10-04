@@ -53,9 +53,11 @@ class AndroidBridge:
         """Process incoming WebSocket messages from Computer SDK."""
         try:
             data = json.loads(message)
-            action = data.get("action", data.get("type"))
+            # SDK sends "command", but also support "action" and "type" for compatibility
+            action = data.get("command") or data.get("action") or data.get("type")
+            params = data.get("params", {})
             
-            logger.info(f"Handling action: {action}")
+            logger.info(f"Handling command: {action} with params: {params}")
             
             # Screenshot request
             if action in ["screenshot", "take_screenshot"]:
@@ -74,8 +76,9 @@ class AndroidBridge:
             
             # Click/tap action
             elif action in ["click", "left_click", "tap"]:
-                x = data.get("x", data.get("coordinate", [0, 0])[0])
-                y = data.get("y", data.get("coordinate", [0, 0])[1])
+                # Support both direct data and params
+                x = params.get("x") or data.get("x", data.get("coordinate", [0, 0])[0])
+                y = params.get("y") or data.get("y", data.get("coordinate", [0, 0])[1])
                 success, output, _ = await self.execute_adb(["shell", "input", "tap", str(x), str(y)])
                 response = {"success": success, "action": "click", "x": x, "y": y}
             
@@ -117,8 +120,31 @@ class AndroidBridge:
                 ])
                 response = {"success": success, "action": "swipe"}
             
+            # Get screen size (required by SDK)
+            elif action == "get_screen_size":
+                success, output, _ = await self.execute_adb(["shell", "wm", "size"])
+                if success and "x" in output:
+                    # Parse "Physical size: 1080x1920"
+                    size_str = output.split(":")[-1].strip()
+                    width, height = map(int, size_str.split("x"))
+                    response = {
+                        "success": True,
+                        "size": {"width": width, "height": height}
+                    }
+                else:
+                    response = {"success": False, "error": "Could not get screen size"}
+            
+            # Version command (required by SDK)
+            elif action == "version":
+                response = {
+                    "success": True,
+                    "version": "1.0.0",
+                    "platform": "android"
+                }
+            
             # Default response for unknown actions
             else:
+                logger.warning(f"Unknown action: {action}")
                 response = {"success": True, "action": action, "status": "ok"}
             
             # Send response back
