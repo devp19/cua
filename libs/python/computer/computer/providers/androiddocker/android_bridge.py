@@ -67,12 +67,11 @@ class AndroidBridge:
             if action in ["screenshot", "take_screenshot"]:
                 success, _, image_data = await self.execute_adb(["shell", "screencap", "-p"])
                 if success and image_data:
-                    # Send image as base64
+                    # Send image as base64 (SDK expects "image_data" field)
                     encoded = base64.b64encode(image_data).decode('utf-8')
                     response = {
                         "success": True,
-                        "action": "screenshot",
-                        "image": encoded,
+                        "image_data": encoded,
                         "format": "png"
                     }
                 else:
