@@ -123,6 +123,7 @@ class AndroidBridge:
             # Get screen size (required by SDK)
             elif action == "get_screen_size":
                 success, output, _ = await self.execute_adb(["shell", "wm", "size"])
+                logger.info(f"get_screen_size: success={success}, output={output}")
                 if success and "x" in output:
                     # Parse "Physical size: 1080x1920"
                     size_str = output.split(":")[-1].strip()
@@ -131,8 +132,10 @@ class AndroidBridge:
                         "success": True,
                         "size": {"width": width, "height": height}
                     }
+                    logger.info(f"Returning screen size: {response}")
                 else:
                     response = {"success": False, "error": "Could not get screen size"}
+                    logger.error(f"Failed to get screen size: {output}")
             
             # Version command (required by SDK)
             elif action == "version":
