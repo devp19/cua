@@ -38,8 +38,8 @@ class AndroidBridge:
         self.container_name = container_name
         
     async def execute_adb(self, command: list) -> tuple:
-        """Execute ADB command in the container."""
-        cmd = ["docker", "exec", self.container_name, "adb"] + command
+        """Execute ADB command directly (we're already inside the container)."""
+        cmd = ["adb"] + command
         try:
             result = subprocess.run(cmd, capture_output=True, timeout=10)
             success = result.returncode == 0
