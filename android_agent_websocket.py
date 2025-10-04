@@ -62,12 +62,25 @@ async def main():
         await computer.run()
         
         print("\n WebSocket connected!")
-        print("   Android agent is ready!")
+        print("   Waiting for Android emulator to fully boot...")
         
-        # Get screen size
-        screen_size = await computer.interface.get_screen_size()
+        # Wait for emulator to be ready (retry get_screen_size until it works)
+        screen_size = None
+        max_retries = 30
+        for attempt in range(max_retries):
+            try:
+                screen_size = await computer.interface.get_screen_size()
+                break
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    print(f"   Emulator not ready yet, waiting... ({attempt + 1}/{max_retries})")
+                    await asyncio.sleep(2)
+                else:
+                    raise RuntimeError("Emulator failed to boot after 60 seconds")
+        
         screen_width = screen_size["width"]
         screen_height = screen_size["height"]
+        print(f"   Android agent is ready!")
         print(f"   Screen resolution: {screen_width}x{screen_height}")
         
         # Initialize Anthropic client
