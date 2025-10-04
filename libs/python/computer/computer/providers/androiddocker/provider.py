@@ -47,7 +47,8 @@ class AndroidDockerProvider(DockerProvider):
         )
         self.image = image
         self.port = port
-        self.api_port = port
+        # Force api_port to 8000 since the interface is hardcoded to use port 8000
+        self.api_port = 8000
         self.adb_port = adb_port
         self.device_profile = device_profile
         self._android_ready = False
